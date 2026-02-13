@@ -120,6 +120,8 @@ h1{
 
 let scene, camera, renderer, controls;
 let sun, sunLight, corona;
+let sunMaterial;
+let clock = new THREE.Clock();
 let hearts = [];
 let supernovaActivada = false;
 let aceptado = false;
@@ -157,47 +159,69 @@ function init(){
 }
 
 function crearSol(){
+
     const textureLoader = new THREE.TextureLoader();
 
-    // NOTA: Estoy usando una URL online para que funcione al copiar y pegar.
-    // Si tienes "sun.jpg" localmente, cambia la URL por 'sun.jpg'
-    const sunTexture = textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/sun.jpg'); 
-    
-    // Geometría mucho más grande (200) y detallada
-    const sunGeometry = new THREE.SphereGeometry(200, 64, 64);
+    const sunTexture = textureLoader.load('sun.jpg');
+    const noiseTexture = textureLoader.load('sun_noise.jpg');
 
-    // Material realista PRO
-    const sunMaterial = new THREE.MeshStandardMaterial({
-        map: sunTexture,
-        emissive: 0xffaa00,
-        emissiveIntensity: 2,
-        roughness: 0.4,
-        metalness: 0.1,
-        wireframe: false
+    const sunGeometry = new THREE.SphereGeometry(200, 128, 128);
+
+    // 🔥 SHADER PROFESIONAL CON DISTORSIÓN PLASMA
+    sunMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            time: { value: 0 },
+            texture1: { value: sunTexture },
+            noiseTexture: { value: noiseTexture }
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform float time;
+            uniform sampler2D texture1;
+            uniform sampler2D noiseTexture;
+            varying vec2 vUv;
+
+            void main() {
+
+                vec2 uv = vUv;
+
+                // Movimiento orgánico tipo plasma
+                vec2 noise = texture2D(noiseTexture, uv + time * 0.05).rg;
+                vec2 distortedUv = uv + noise * 0.08;
+
+                vec4 color = texture2D(texture1, distortedUv);
+
+                // Intensidad solar
+                gl_FragColor = vec4(color.rgb * 1.6, 1.0);
+            }
+        `
     });
 
     sun = new THREE.Mesh(sunGeometry, sunMaterial);
     scene.add(sun);
 
-    // Luz puntual potente desde el centro
     sunLight = new THREE.PointLight(0xffaa33, 5, 2000);
     sunLight.position.set(0,0,0);
     scene.add(sunLight);
 
-    // Corona Solar (Halo)
     const coronaGeometry = new THREE.SphereGeometry(230, 64, 64);
     const coronaMaterial = new THREE.MeshBasicMaterial({
         color: 0xffdd88,
         transparent: true,
         opacity: 0.3,
         side: THREE.BackSide,
-        blending: THREE.AdditiveBlending // Clave para que brille
+        blending: THREE.AdditiveBlending
     });
 
     corona = new THREE.Mesh(coronaGeometry, coronaMaterial);
     scene.add(corona);
 }
-
 function crearEstrellas(){
     const starGeo = new THREE.BufferGeometry();
     const starCoords = [];
@@ -346,6 +370,9 @@ function animate(){
 
     // Animación VIVA del sol y la corona
     if(sun) sun.rotation.y += 0.002;
+    if(sunMaterial){
+    sunMaterial.uniforms.time.value += clock.getDelta();
+}
     if(corona) {
         corona.rotation.y -= 0.001;
         corona.lookAt(camera.position); // Truco para que el halo siempre mire a cámara si quieres, o rotación normal
