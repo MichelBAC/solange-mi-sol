@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Solange: Mi Sol</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@100;300&family=Playfair+Display:ital@1&display=swap" rel="stylesheet">
+
+<style>
+body { margin:0; background:#050505; overflow:hidden; font-family:'Montserrat', sans-serif; }
+#canvas-container { width:100vw; height:100vh; }
+
+.interface{
+    position:absolute; top:0; left:0; width:100%; height:100%;
+    pointer-events:none; z-index:10;
+    display:flex; flex-direction:column;
+    justify-content:space-between; align-items:center;
+    padding:40px; box-sizing:border-box;
+}
+
+.frase-flotante{
+    color:#C5A059; font-size:0.8rem; letter-spacing:4px;
+    text-transform:uppercase; opacity:0;
+    transition:opacity 2s; text-align:center;
+}
+
+.card-propuesta{
+    background:rgba(5,5,5,0.92);
+    border:0.5px solid #C5A059;
+    padding:35px; text-align:center;
+    opacity:0; transform:translateY(30px);
+    transition:all 1.5s cubic-bezier(0.19,1,0.22,1);
+    backdrop-filter: blur(10px);
+}
+
+.card-propuesta.show{
+    opacity:1; transform:translateY(0);
+    pointer-events:all;
+}
+
+h1{
+    color:#C5A059;
+    font-weight:100;
+    font-size:2rem;
+    margin-bottom:20px;
+    letter-spacing:10px;
+}
+
+.italiano {
+    font-family: 'Playfair Display', serif;
+    color: #C5A059;
+    font-style: italic;
+    font-size: 1.1rem;
+    display: block;
+    margin-bottom: 15px;
+}
+
+.btn-oro{
+    background:none; border:1px solid #C5A059;
+    color:#C5A059;
+    padding:12px 35px;
+    cursor:pointer;
+    font-size:0.7rem;
+    letter-spacing:2px;
+    transition:0.4s;
+    margin-top:20px;
+    text-transform: uppercase;
+}
+
+.btn-oro:hover{ background:#C5A059; color:#000; }
+
+#loader{
+    position:fixed; top:0; left:0;
+    width:100%; height:100%;
+    background:#050505;
+    display:flex; justify-content:center; align-items:center;
+    color:#C5A059; z-index:100;
+    font-size:0.6rem; letter-spacing:5px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="loader">INICIANDO SISTEMA SOLAR "SOLANGE"...</div>
+
+<div class="interface">
+<div id="frase-top" class="frase-flotante">"En mi universo, tú eres el único Sol"</div>
+
+<div id="card" class="card-propuesta">
+    <h1 id="titulo-card">SOLANGE</h1>
+    <div id="contenido-card">
+        <p style="color:#fff; font-size:0.9rem; line-height:1.8;">
+        Eres la gravedad que me mantiene en pie.<br>
+        ¿Me harías el honor de ser mi San Valentín?
+        </p>
+        <div style="position:relative; height:60px; display:flex; justify-content:center; align-items:center;">
+            <button class="btn-oro" onclick="aceptar()">SÍ, ACEPTO</button>
+            <button id="btn-no" class="btn-oro"
+            style="position:absolute; border-color:#333; color:#555;"
+            onmouseover="huir()" ontouchstart="huir()">NO</button>
+        </div>
+    </div>
+</div>
+
+<div id="frase-bottom" class="frase-flotante">Acércate al sol para descubrir el mensaje</div>
+</div>
+
+<div id="canvas-container"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.7.1/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+
+let scene, camera, renderer, controls;
+let sun, sunLight, corona;
+let hearts = [];
+let supernovaActivada = false;
+let aceptado = false;
+
+function init(){
+
+scene = new THREE.Scene();
+
+camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 5000);
+camera.position.z = 1500;
+
+renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+document.getElementById("canvas-container").appendChild(renderer.domElement);
+
+controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.5;
+controls.maxDistance = 2000;
+controls.minDistance = 50;
+
+crearSol();
+crearEstrellas();
+crearFotos();
+
+animate();
+entradaInicial();
+}
+
+function crearSol(){
+const sunGeo = new THREE.SphereGeometry(25,64,64);
+// Usamos BasicMaterial para que no dependa de luces externas y se vea dorado siempre
+const sunMat = new THREE.MeshBasicMaterial({color:0xC5A059});
+sun = new THREE.Mesh(sunGeo, sunMat);
+scene.add(sun);
+
+sunLight = new THREE.PointLight(0xC5A059,2,1000);
+scene.add(sunLight);
+
+const coronaGeo = new THREE.SphereGeometry(40,64,64);
+const coronaMat = new THREE.MeshBasicMaterial({
+    color:0xC5A059,
+    transparent:true,
+    opacity:0.0
+});
+corona = new THREE.Mesh(coronaGeo, coronaMat);
+scene.add(corona);
+}
+
+function crearEstrellas(){
+const starGeo = new THREE.BufferGeometry();
+const starCoords = [];
+
+for(let i=0;i<15000;i++){
+    starCoords.push(
+        (Math.random()-0.5)*3000,
+        (Math.random()-0.5)*3000,
+        (Math.random()-0.5)*3000
+    );
+}
+
+starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starCoords,3));
+const starMat = new THREE.PointsMaterial({ color:0xffffff, size:0.7, transparent:true });
+const starField = new THREE.Points(starGeo, starMat);
+scene.add(starField);
+}
+
+function crearFotos(){
+const loader = new THREE.TextureLoader();
+const fotos = ['foto1.jpeg','foto2.jpeg','foto3.jpeg','foto4.jpeg'];
+
+fotos.forEach((src,i)=>{
+    loader.load(src, (texture) => {
+        const geo = new THREE.CircleGeometry(40,32);
+        // MeshBasicMaterial soluciona el problema de las sombras negras
+        const mat = new THREE.MeshBasicMaterial({map:texture, side:THREE.DoubleSide});
+        const photo = new THREE.Mesh(geo,mat);
+
+        const angle = (i/fotos.length)*Math.PI*2;
+        const dist = 350 + (i * 40);
+
+        photo.position.set(
+            Math.cos(angle)*dist,
+            (Math.random()-0.5)*200,
+            Math.sin(angle)*dist
+        );
+
+        photo.lookAt(0,0,0);
+        scene.add(photo);
+    });
+});
+}
+
+function entradaInicial(){
+gsap.to(camera.position,{
+    z:600,
+    duration:6,
+    ease:"expo.inOut",
+    onComplete:()=>{
+        document.getElementById("loader").style.display="none";
+    }
+});
+}
+
+function activarSupernova(){
+if(supernovaActivada || aceptado) return;
+supernovaActivada = true;
+
+gsap.to(corona.material,{ opacity:0.4, duration:1 });
+gsap.fromTo(corona.scale, { x:0.5,y:0.5,z:0.5 }, { x:2.5,y:2.5,z:2.5,duration:2,ease:"power4.out" });
+
+document.getElementById("frase-top").style.opacity=1;
+document.getElementById("frase-bottom").style.opacity=1;
+document.getElementById("card").classList.add("show");
+controls.autoRotate = false;
+}
+
+function crearExplosionCorazones() {
+    const heartShape = new THREE.Shape();
+    heartShape.moveTo(0, 0);
+    heartShape.bezierCurveTo(0, 3, 5, 3, 5, 0);
+    heartShape.bezierCurveTo(5, -3, 0, -5, 0, -8);
+    heartShape.bezierCurveTo(0, -5, -5, -3, -5, 0);
+    heartShape.bezierCurveTo(-5, 3, 0, 3, 0, 0);
+
+    for (let i = 0; i < 350; i++) {
+        const geometry = new THREE.ShapeGeometry(heartShape);
+        const material = new THREE.MeshBasicMaterial({ color: 0xC5A059, transparent: true, side: THREE.DoubleSide });
+        const heart = new THREE.Mesh(geometry, material);
+        
+        heart.position.copy(sun.position);
+        heart.scale.set(0.2, 0.2, 0.2);
+        heart.userData.velocity = new THREE.Vector3(
+            (Math.random() - 0.5) * 5,
+            (Math.random() - 0.5) * 5,
+            (Math.random() - 0.5) * 5
+        );
+        scene.add(heart);
+        hearts.push(heart);
+    }
+}
+
+function animate(){
+    requestAnimationFrame(animate);
+    controls.update();
+
+    sun.rotation.y += 0.005;
+    const pulso = 1 + Math.sin(Date.now()*0.002)*0.05;
+    sun.scale.set(pulso,pulso,pulso);
+    corona.position.copy(sun.position);
+
+    // Animación corazones
+    hearts.forEach(h => {
+        h.position.add(h.userData.velocity);
+        h.rotation.z += 0.01;
+        h.material.opacity -= 0.002;
+    });
+
+    const distance = camera.position.distanceTo(sun.position);
+    if(distance < 200){
+        activarSupernova();
+    } else if (distance > 300 && supernovaActivada && !aceptado) {
+        supernovaActivada = false;
+        document.getElementById("card").classList.remove("show");
+        controls.autoRotate = true;
+    }
+
+    renderer.render(scene,camera);
+}
+
+function huir(){
+    const btn = document.getElementById("btn-no");
+    btn.style.left = Math.random()*70 + "%";
+    btn.style.top = Math.random()*70 + "%";
+}
+
+function aceptar(){
+    aceptado = true;
+    
+    // UI Cambio de texto
+    document.getElementById("titulo-card").innerText = "¡SÍ!";
+    document.getElementById("contenido-card").innerHTML = `
+        <span class="italiano">"Tu sei il mio sole, amore mio ❤️"</span>
+        <p style="color:#fff;">Has hecho mi universo completo.<br>Te amo infinitamente, Solange.</p>
+    `;
+
+    // Efecto visual de explosión
+    gsap.to(sun.scale, { x: 0, y: 0, z: 0, duration: 0.5, onComplete: () => {
+        sun.visible = false;
+        corona.visible = false;
+        crearExplosionCorazones();
+    }});
+
+    gsap.to(camera.position, {z: 100, duration: 4, ease: "power2.out"});
+
+    setTimeout(() => {
+        window.location.href="https://www.google.com/calendar/render?action=TEMPLATE&text=Cita+con+mi+Sol&details=Te+amo,+Solange.&dates=20260214T190000Z/20260214T230000Z";
+    }, 7000);
+}
+
+window.addEventListener("resize",()=>{
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+init();
+
+</script>
+</body>
+</html>
