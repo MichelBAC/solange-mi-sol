@@ -23,15 +23,18 @@ body { margin:0; background:#050505; overflow:hidden; font-family:'Montserrat', 
     color:#C5A059; font-size:0.8rem; letter-spacing:4px;
     text-transform:uppercase; opacity:0;
     transition:opacity 2s; text-align:center;
+    text-shadow: 0 0 10px rgba(197, 160, 89, 0.5);
 }
 
 .card-propuesta{
-    background:rgba(5,5,5,0.92);
-    border:0.5px solid #C5A059;
+    background:rgba(5,5,5,0.85);
+    border:1px solid #C5A059;
     padding:35px; text-align:center;
     opacity:0; transform:translateY(30px);
     transition:all 1.5s cubic-bezier(0.19,1,0.22,1);
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(15px);
+    box-shadow: 0 0 30px rgba(197, 160, 89, 0.2);
+    border-radius: 4px;
 }
 
 .card-propuesta.show{
@@ -68,7 +71,7 @@ h1{
     text-transform: uppercase;
 }
 
-.btn-oro:hover{ background:#C5A059; color:#000; }
+.btn-oro:hover{ background:#C5A059; color:#000; box-shadow: 0 0 15px #C5A059; }
 
 #loader{
     position:fixed; top:0; left:0;
@@ -123,154 +126,191 @@ let aceptado = false;
 
 function init(){
 
-scene = new THREE.Scene();
+    scene = new THREE.Scene();
 
-camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 5000);
-camera.position.z = 1500;
+    // Ajuste de cámara inicial
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 5000);
+    camera.position.z = 1800; // Un poco más lejos al inicio porque el sol es más grande
 
-renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
-document.getElementById("canvas-container").appendChild(renderer.domElement);
+    renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    // Habilitar output encoding para mejores colores en el material standard
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    
+    document.getElementById("canvas-container").appendChild(renderer.domElement);
 
-controls = new THREE.OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.autoRotate = true;
-controls.autoRotateSpeed = 0.5;
-controls.maxDistance = 2000;
-controls.minDistance = 50;
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.5;
+    controls.maxDistance = 2500;
+    controls.minDistance = 250; // Ajustado para no entrar dentro del sol gigante
 
-crearSol();
-crearEstrellas();
-crearFotos();
+    crearSol();
+    crearEstrellas();
+    crearFotos();
 
-animate();
-entradaInicial();
+    animate();
+    entradaInicial();
 }
 
 function crearSol(){
-const sunGeo = new THREE.SphereGeometry(25,64,64);
-// Usamos BasicMaterial para que no dependa de luces externas y se vea dorado siempre
-const sunMat = new THREE.MeshBasicMaterial({color:0xC5A059});
-sun = new THREE.Mesh(sunGeo, sunMat);
-scene.add(sun);
+    const textureLoader = new THREE.TextureLoader();
 
-sunLight = new THREE.PointLight(0xC5A059,2,1000);
-scene.add(sunLight);
+    // NOTA: Estoy usando una URL online para que funcione al copiar y pegar.
+    // Si tienes "sun.jpg" localmente, cambia la URL por 'sun.jpg'
+    const sunTexture = textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/sun.jpg'); 
+    
+    // Geometría mucho más grande (200) y detallada
+    const sunGeometry = new THREE.SphereGeometry(200, 64, 64);
 
-const coronaGeo = new THREE.SphereGeometry(40,64,64);
-const coronaMat = new THREE.MeshBasicMaterial({
-    color:0xC5A059,
-    transparent:true,
-    opacity:0.0
-});
-corona = new THREE.Mesh(coronaGeo, coronaMat);
-scene.add(corona);
+    // Material realista PRO
+    const sunMaterial = new THREE.MeshStandardMaterial({
+        map: sunTexture,
+        emissive: 0xffaa00,
+        emissiveIntensity: 2,
+        roughness: 0.4,
+        metalness: 0.1,
+        wireframe: false
+    });
+
+    sun = new THREE.Mesh(sunGeometry, sunMaterial);
+    scene.add(sun);
+
+    // Luz puntual potente desde el centro
+    sunLight = new THREE.PointLight(0xffaa33, 5, 2000);
+    sunLight.position.set(0,0,0);
+    scene.add(sunLight);
+
+    // Corona Solar (Halo)
+    const coronaGeometry = new THREE.SphereGeometry(230, 64, 64);
+    const coronaMaterial = new THREE.MeshBasicMaterial({
+        color: 0xffdd88,
+        transparent: true,
+        opacity: 0.3,
+        side: THREE.BackSide,
+        blending: THREE.AdditiveBlending // Clave para que brille
+    });
+
+    corona = new THREE.Mesh(coronaGeometry, coronaMaterial);
+    scene.add(corona);
 }
 
 function crearEstrellas(){
-const starGeo = new THREE.BufferGeometry();
-const starCoords = [];
+    const starGeo = new THREE.BufferGeometry();
+    const starCoords = [];
 
-for(let i=0;i<15000;i++){
-    starCoords.push(
-        (Math.random()-0.5)*3000,
-        (Math.random()-0.5)*3000,
-        (Math.random()-0.5)*3000
-    );
-}
+    for(let i=0;i<15000;i++){
+        starCoords.push(
+            (Math.random()-0.5)*4000, // Espacio más amplio
+            (Math.random()-0.5)*4000,
+            (Math.random()-0.5)*4000
+        );
+    }
 
-starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starCoords,3));
-const starMat = new THREE.PointsMaterial({ color:0xffffff, size:0.7, transparent:true });
-const starField = new THREE.Points(starGeo, starMat);
-scene.add(starField);
+    starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starCoords,3));
+    const starMat = new THREE.PointsMaterial({ color:0xffffff, size:0.9, transparent:true });
+    const starField = new THREE.Points(starGeo, starMat);
+    scene.add(starField);
 }
 
 let orbitas = [];
 
 function crearFotos(){
 
-const loader = new THREE.TextureLoader();
+    const loader = new THREE.TextureLoader();
 
-// 14 fotos
-const fotos = [
-'foto1.jpeg','foto2.jpeg','foto3.jpeg','foto4.jpeg',
-'foto5.jpeg','foto6.jpeg','foto7.jpeg','foto8.jpeg',
-'foto9.jpeg','foto10.jpeg','foto11.jpeg','foto12.jpeg',
-'foto13.jpeg','foto14.jpeg'
-];
+    // Tus fotos (asegúrate que existan en la carpeta o pon URLs de prueba)
+    const fotos = [
+    'foto1.jpeg','foto2.jpeg','foto3.jpeg','foto4.jpeg',
+    'foto5.jpeg','foto6.jpeg','foto7.jpeg','foto8.jpeg',
+    'foto9.jpeg','foto10.jpeg','foto11.jpeg','foto12.jpeg',
+    'foto13.jpeg','foto14.jpeg'
+    ];
 
-// Configuración de órbitas
-const configuracionOrbitas = [
-    { radio: 350, velocidad: 0.002 },
-    { radio: 500, velocidad: 0.0015 },
-    { radio: 650, velocidad: 0.001 }
-];
+    // Configuración de órbitas (Radios aumentados porque el Sol ahora mide 200)
+    const configuracionOrbitas = [
+        { radio: 400, velocidad: 0.002 },
+        { radio: 600, velocidad: 0.0015 },
+        { radio: 800, velocidad: 0.001 }
+    ];
 
-// Crear grupos orbitales
-configuracionOrbitas.forEach(config => {
-
-    const grupo = new THREE.Group();
-    grupo.userData = config;
-    scene.add(grupo);
-    orbitas.push(grupo);
-
-});
-
-// Distribuir fotos
-fotos.forEach((src,index)=>{
-
-    loader.load(src,(texture)=>{
-
-        const geo = new THREE.CircleGeometry(40,32);
-        const mat = new THREE.MeshBasicMaterial({
-            map:texture,
-            side:THREE.DoubleSide
-        });
-
-        const photo = new THREE.Mesh(geo,mat);
-
-        const orbitaIndex = index % configuracionOrbitas.length;
-        const grupo = orbitas[orbitaIndex];
-        const radio = configuracionOrbitas[orbitaIndex].radio;
-
-        const angulo = (index / fotos.length) * Math.PI * 2;
-
-        photo.position.set(
-            Math.cos(angulo)*radio,
-            (Math.random()-0.5)*150,
-            Math.sin(angulo)*radio
-        );
-
-        photo.lookAt(0,0,0);
-
-        grupo.add(photo);
+    configuracionOrbitas.forEach(config => {
+        const grupo = new THREE.Group();
+        grupo.userData = config;
+        scene.add(grupo);
+        orbitas.push(grupo);
     });
 
-});
+    fotos.forEach((src,index)=>{
+        // Si no tienes las fotos locales, esto se verá negro, pero la lógica funciona
+        loader.load(src,(texture)=>{
+            const geo = new THREE.CircleGeometry(35,32);
+            const mat = new THREE.MeshBasicMaterial({
+                map:texture,
+                side:THREE.DoubleSide
+            });
+
+            const photo = new THREE.Mesh(geo,mat);
+            const orbitaIndex = index % configuracionOrbitas.length;
+            const grupo = orbitas[orbitaIndex];
+            const radio = configuracionOrbitas[orbitaIndex].radio;
+            const angulo = (index / fotos.length) * Math.PI * 2;
+
+            photo.position.set(
+                Math.cos(angulo)*radio,
+                (Math.random()-0.5)*200,
+                Math.sin(angulo)*radio
+            );
+
+            photo.lookAt(0,0,0);
+            grupo.add(photo);
+        }, undefined, (err) => {
+            // Fallback por si no encuentra la imagen: Crea un circulo dorado
+            const geo = new THREE.CircleGeometry(35,32);
+            const mat = new THREE.MeshBasicMaterial({ color: 0x333333, side: THREE.DoubleSide });
+            const photo = new THREE.Mesh(geo, mat);
+             const orbitaIndex = index % configuracionOrbitas.length;
+            const grupo = orbitas[orbitaIndex];
+            const radio = configuracionOrbitas[orbitaIndex].radio;
+            const angulo = (index / fotos.length) * Math.PI * 2;
+             photo.position.set(Math.cos(angulo)*radio, (Math.random()-0.5)*200, Math.sin(angulo)*radio);
+            photo.lookAt(0,0,0);
+            grupo.add(photo);
+        });
+    });
 }
+
 function entradaInicial(){
-gsap.to(camera.position,{
-    z:600,
-    duration:6,
-    ease:"expo.inOut",
-    onComplete:()=>{
-        document.getElementById("loader").style.display="none";
-    }
-});
+    // La cámara viaja hacia el sol pero se detiene antes de chocar (z:900 es seguro para radio 200)
+    gsap.to(camera.position,{
+        z:900,
+        duration:5,
+        ease:"expo.inOut",
+        onComplete:()=>{
+            document.getElementById("loader").style.display="none";
+        }
+    });
 }
 
 function activarSupernova(){
-if(supernovaActivada || aceptado) return;
-supernovaActivada = true;
+    if(supernovaActivada || aceptado) return;
+    supernovaActivada = true;
 
-gsap.to(corona.material,{ opacity:0.4, duration:1 });
-gsap.fromTo(corona.scale, { x:0.5,y:0.5,z:0.5 }, { x:2.5,y:2.5,z:2.5,duration:2,ease:"power4.out" });
+    // OPCIÓN PRO: Explosión de luz e intensidad
+    gsap.to(sun.material, { emissiveIntensity: 5, duration: 2 }); // Brilla más
+    gsap.to(sunLight, { intensity: 8, duration: 2 }); // Ilumina más
+    gsap.to(corona.material, { opacity: 0.8, duration: 2 }); // Halo más visible
+    
+    // Expansión del halo
+    gsap.fromTo(corona.scale, { x:1,y:1,z:1 }, { x:1.5,y:1.5,z:1.5,duration:2,ease:"power2.out" });
 
-document.getElementById("frase-top").style.opacity=1;
-document.getElementById("frase-bottom").style.opacity=1;
-document.getElementById("card").classList.add("show");
-controls.autoRotate = false;
+    document.getElementById("frase-top").style.opacity=1;
+    document.getElementById("frase-bottom").style.opacity=1;
+    document.getElementById("card").classList.add("show");
+    controls.autoRotate = false;
 }
 
 function crearExplosionCorazones() {
@@ -281,17 +321,19 @@ function crearExplosionCorazones() {
     heartShape.bezierCurveTo(0, -5, -5, -3, -5, 0);
     heartShape.bezierCurveTo(-5, 3, 0, 3, 0, 0);
 
-    for (let i = 0; i < 350; i++) {
+    for (let i = 0; i < 400; i++) {
         const geometry = new THREE.ShapeGeometry(heartShape);
-        const material = new THREE.MeshBasicMaterial({ color: 0xC5A059, transparent: true, side: THREE.DoubleSide });
+        const material = new THREE.MeshBasicMaterial({ color: 0xFFD700, transparent: true, side: THREE.DoubleSide });
         const heart = new THREE.Mesh(geometry, material);
         
         heart.position.copy(sun.position);
-        heart.scale.set(0.2, 0.2, 0.2);
+        heart.scale.set(0.3, 0.3, 0.3);
+        
+        // Velocidad aleatoria explosiva
         heart.userData.velocity = new THREE.Vector3(
-            (Math.random() - 0.5) * 5,
-            (Math.random() - 0.5) * 5,
-            (Math.random() - 0.5) * 5
+            (Math.random() - 0.5) * 15,
+            (Math.random() - 0.5) * 15,
+            (Math.random() - 0.5) * 15
         );
         scene.add(heart);
         hearts.push(heart);
@@ -302,30 +344,52 @@ function animate(){
     requestAnimationFrame(animate);
     controls.update();
 
-    sun.rotation.y += 0.005;
-    const pulso = 1 + Math.sin(Date.now()*0.002)*0.05;
-    sun.scale.set(pulso,pulso,pulso);
-    corona.position.copy(sun.position);
+    // Animación VIVA del sol y la corona
+    if(sun) sun.rotation.y += 0.002;
+    if(corona) {
+        corona.rotation.y -= 0.001;
+        corona.lookAt(camera.position); // Truco para que el halo siempre mire a cámara si quieres, o rotación normal
+    }
+
+    // Pequeño pulso natural (respiración del sol)
+    if(!aceptado && sun) {
+        const pulso = 1 + Math.sin(Date.now()*0.001)*0.01;
+        sun.scale.set(pulso,pulso,pulso);
+        corona.scale.set(pulso*1.15, pulso*1.15, pulso*1.15);
+    }
 
     // Animación corazones
     hearts.forEach(h => {
         h.position.add(h.userData.velocity);
-        h.rotation.z += 0.01;
-        h.material.opacity -= 0.002;
+        h.rotation.z += 0.02;
+        h.material.opacity -= 0.005;
     });
 
-    const distance = camera.position.distanceTo(sun.position);
-    if(distance < 200){
+    // Detectar distancia para activar carta
+    const distance = camera.position.distanceTo(new THREE.Vector3(0,0,0));
+    
+    // Como el sol mide 200 de radio, activamos la carta a 450 de distancia
+    if(distance < 450){
         activarSupernova();
-    } else if (distance > 300 && supernovaActivada && !aceptado) {
+    } else if (distance > 600 && supernovaActivada && !aceptado) {
+        // Si se aleja, desactivar supernova (bajar intensidad)
         supernovaActivada = false;
+        
+        gsap.to(sun.material, { emissiveIntensity: 2, duration: 1 });
+        gsap.to(sunLight, { intensity: 5, duration: 1 });
+        gsap.to(corona.material, { opacity: 0.3, duration: 1 });
+        gsap.to(corona.scale, { x:1,y:1,z:1, duration:1 });
+
         document.getElementById("card").classList.remove("show");
+        document.getElementById("frase-top").style.opacity=0;
+        document.getElementById("frase-bottom").style.opacity=0;
         controls.autoRotate = true;
     }
-// Movimiento orbital
-orbitas.forEach(grupo=>{
-    grupo.rotation.y += grupo.userData.velocidad;
-});
+
+    // Movimiento orbital de fotos
+    orbitas.forEach(grupo=>{
+        grupo.rotation.y += grupo.userData.velocidad;
+    });
 
     renderer.render(scene,camera);
 }
@@ -346,18 +410,21 @@ function aceptar(){
         <p style="color:#fff;">Has hecho mi universo completo.<br>Te amo infinitamente, Solange.</p>
     `;
 
-    // Efecto visual de explosión
-    gsap.to(sun.scale, { x: 0, y: 0, z: 0, duration: 0.5, onComplete: () => {
+    // Efecto visual de explosión final (Colapso y Big Bang de amor)
+    // Primero un destello blanco cegador
+    gsap.to(sunLight, { intensity: 50, duration: 0.2, yoyo:true, repeat:1 });
+    gsap.to(sun.scale, { x: 0.1, y: 0.1, z: 0.1, duration: 0.4, ease:"back.in", onComplete: () => {
         sun.visible = false;
         corona.visible = false;
         crearExplosionCorazones();
     }});
 
-    gsap.to(camera.position, {z: 100, duration: 4, ease: "power2.out"});
+    // Alejar cámara para ver la explosión de corazones
+    gsap.to(camera.position, {z: 1200, duration: 4, ease: "power2.out"});
 
     setTimeout(() => {
         window.location.href="https://www.google.com/calendar/render?action=TEMPLATE&text=Cita+con+mi+Sol&details=Te+amo,+Solange.&dates=20260214T190000Z/20260214T230000Z";
-    }, 7000);
+    }, 6000);
 }
 
 window.addEventListener("resize",()=>{
