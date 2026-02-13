@@ -186,32 +186,69 @@ const starField = new THREE.Points(starGeo, starMat);
 scene.add(starField);
 }
 
-function crearFotos(){
-const loader = new THREE.TextureLoader();
-const fotos = ['foto1.jpeg','foto2.jpeg','foto3.jpeg','foto4.jpeg'];
+let orbitas = [];
 
-fotos.forEach((src,i)=>{
-    loader.load(src, (texture) => {
+function crearFotos(){
+
+const loader = new THREE.TextureLoader();
+
+// 14 fotos
+const fotos = [
+'foto1.jpeg','foto2.jpeg','foto3.jpeg','foto4.jpeg',
+'foto5.jpeg','foto6.jpeg','foto7.jpeg','foto8.jpeg',
+'foto9.jpeg','foto10.jpeg','foto11.jpeg','foto12.jpeg',
+'foto13.jpeg','foto14.jpeg'
+];
+
+// Configuración de órbitas
+const configuracionOrbitas = [
+    { radio: 350, velocidad: 0.002 },
+    { radio: 500, velocidad: 0.0015 },
+    { radio: 650, velocidad: 0.001 }
+];
+
+// Crear grupos orbitales
+configuracionOrbitas.forEach(config => {
+
+    const grupo = new THREE.Group();
+    grupo.userData = config;
+    scene.add(grupo);
+    orbitas.push(grupo);
+
+});
+
+// Distribuir fotos
+fotos.forEach((src,index)=>{
+
+    loader.load(src,(texture)=>{
+
         const geo = new THREE.CircleGeometry(40,32);
-        // MeshBasicMaterial soluciona el problema de las sombras negras
-        const mat = new THREE.MeshBasicMaterial({map:texture, side:THREE.DoubleSide});
+        const mat = new THREE.MeshBasicMaterial({
+            map:texture,
+            side:THREE.DoubleSide
+        });
+
         const photo = new THREE.Mesh(geo,mat);
 
-        const angle = (i/fotos.length)*Math.PI*2;
-        const dist = 350 + (i * 40);
+        const orbitaIndex = index % configuracionOrbitas.length;
+        const grupo = orbitas[orbitaIndex];
+        const radio = configuracionOrbitas[orbitaIndex].radio;
+
+        const angulo = (index / fotos.length) * Math.PI * 2;
 
         photo.position.set(
-            Math.cos(angle)*dist,
-            (Math.random()-0.5)*200,
-            Math.sin(angle)*dist
+            Math.cos(angulo)*radio,
+            (Math.random()-0.5)*150,
+            Math.sin(angulo)*radio
         );
 
         photo.lookAt(0,0,0);
-        scene.add(photo);
+
+        grupo.add(photo);
     });
+
 });
 }
-
 function entradaInicial(){
 gsap.to(camera.position,{
     z:600,
@@ -285,6 +322,10 @@ function animate(){
         document.getElementById("card").classList.remove("show");
         controls.autoRotate = true;
     }
+// Movimiento orbital
+orbitas.forEach(grupo=>{
+    grupo.rotation.y += grupo.userData.velocidad;
+});
 
     renderer.render(scene,camera);
 }
